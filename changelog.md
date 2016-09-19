@@ -1,6 +1,7 @@
-# 0.1.0.2
+# 0.2.0.0
 
-* Add version bounds to dependencies.
+Many improvements by Tony Morris:
+
 * Turn on GHC warnings
 * The parser uses hackage/parsers library, so a user can choose the parser implementation e.g. attoparsec, parsec.
 * A METAR optionally ends in $ or = instead of necessarily.
