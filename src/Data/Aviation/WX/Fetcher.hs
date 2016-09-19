@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.Aviation.WX.Fetcher(
@@ -8,7 +9,6 @@ module Data.Aviation.WX.Fetcher(
 import Data.Attoparsec.Text(parseOnly)
 import Data.Aviation.WX(Weather, weatherParser)
 import Data.Char(toUpper, isAlpha)
-import Data.List(filter)
 import Data.Text(Text, pack)
 import Network.HTTP(simpleHTTP, getRequest, getResponseBody)
 
