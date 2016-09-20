@@ -1,5 +1,5 @@
 name:                avwx
-version:             0.2.0.0
+version:             0.3.0.0
 synopsis:            Parse METAR weather reports
 description:         Parse METAR weather reports
 homepage:            https://github.com/hce/avwx
