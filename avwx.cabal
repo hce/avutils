@@ -1,8 +1,8 @@
 name:                avwx
 version:             0.3.0.0
-synopsis:            Parse METAR weather reports
-description:         Parse METAR weather reports
-homepage:            https://github.com/hce/avwx
+synopsis:            Parse aviation weather reports
+description:         Parse aviation weather reports, currently METARs and TAFs
+homepage:            https://www.hcesperer.org/posts/2016-09-20-avwx.html
 license:             MIT
 license-file:        LICENSE
 author:              Hans-Christian Esperer <hc@hcesperer.org>
