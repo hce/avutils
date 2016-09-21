@@ -990,7 +990,19 @@ tafParser = do
     issuedate <- spaces >> dateParser
     validFrom <- spaces >> briefDateParser
     validTo <- text "/" >> briefDateParser
-    let initialConditions = []
+    predictedWind <- Nothing `option` (spaces >> Just <$> windParser)
+    spaces
+    predictedVisibility <- [TenOrMore] `option` some visibilityParser
+    spaces
+    predictedRunwayvis <- sepBy runwayvisParser (char ' ')
+    predictedWx <- many wxParser
+    predictedClouds <- [] `option` (spaces >> cloudParser)
+    let initialConditions = catMaybes
+            [ TransWind <$> predictedWind
+            , Just $ TransVis predictedVisibility
+            , Just $ TransRunwayVis predictedRunwayvis
+            , Just $ TransWX predictedWx
+            , Just $ TransClouds predictedClouds ]
         changes = []
     return $ TAF
         { _tafissuedat=issuedate
