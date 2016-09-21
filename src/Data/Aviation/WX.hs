@@ -696,7 +696,7 @@ dateParserSansZulu = Date <$> twin <*> twin <*> twin
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
 
 briefDateParser :: CharParsing f => f Date
-briefDateParser = Date <$> twin <*> twin <*> (pure 0)
+briefDateParser = Date <$> twin <*> twin <*> pure 0
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
 
 variableWindParser :: (Monad f, CharParsing f) => WindDirection -> f WindDirection
@@ -970,7 +970,7 @@ changesParser = some $ spaces >> transitionTypeParser
         transitionTypeParser = choice
                 [ "TEMPO" `callsfor` (TEMPO <$> parseFrom <*> parseTo <*> transitionParser)
                 , "BECMG" `callsfor` (BECMG <$> parseFrom <*> parseTo <*> transitionParser)
-                , "FM" `callsfor` (BECMG <$> parseFromFM <*> (pure Nothing) <*> transitionParser)
+                , "FM" `callsfor` (BECMG <$> parseFromFM <*> pure Nothing <*> transitionParser)
                 , "PROB" `callsfor`  (PROB  <$> twoDigits <*> (head <$> changesParser)) ]
         transitionParser = sepBy1 oneTransition (char ' ')
         parseFromFM = do
@@ -1017,7 +1017,7 @@ tafParser = do
             , Just $ TransWX predictedWx
             , Just $ TransClouds predictedClouds ]
     changes <- [] `option` changesParser
-    return $ TAF
+    return TAF
         { _tafissuedat=issuedate
         , _flags=tafflags
         , _station=identifier

@@ -10,7 +10,6 @@ module Data.Aviation.WX.Fetcher(
 import Data.Attoparsec.Text (parseOnly)
 import Data.Aviation.WX (Weather, weatherParser)
 import Data.Char (toUpper, isAlpha)
-import Data.List (intersperse)
 import Data.Text (Text, pack)
 import Network.HTTP (simpleHTTP, getRequest, getResponseBody)
 
@@ -51,4 +50,4 @@ fetchWX fetchType icao = do
     return $ parseWeather wx'
     where
         url designator = noaaurl fetchType ++ designator ++ ".TXT"
-        relLine = concat . intersperse " " . drop 1 . Prelude.lines
+        relLine = unwords . drop 1 . Prelude.lines
