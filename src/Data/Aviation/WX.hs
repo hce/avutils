@@ -833,7 +833,7 @@ distanceUnitParser = choice
     , "NM" `means` NM ]
 
 cloudParser :: (Monad f, CharParsing f) => f [Cloud]
-cloudParser = choice [(:[]) <$> vvisParser, nsc, cavok, clr, sepBy1 clds (char ' ')]
+cloudParser = choice [(:[]) <$> vvisParser, nsc, cavok, clr, skc, sepBy1 clds (char ' ')]
     where
         clds = do
             perhaps_ space
@@ -847,6 +847,7 @@ cloudParser = choice [(:[]) <$> vvisParser, nsc, cavok, clr, sepBy1 clds (char '
         cavok = spaces >> "CAVOK" `means` []
         nsc = spaces >> "NSC" `means` []
         clr = spaces >> "CLR" `means` []
+        skc = spaces >> "SKC" `means` []
 
 vvisParser :: (Monad f, CharParsing f) => f Cloud
 vvisParser = do
