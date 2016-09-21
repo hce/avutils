@@ -7,11 +7,12 @@ module Data.Aviation.WX.Fetcher(
 , fetchTaf
 ) where
 
-import Data.Attoparsec.Text(parseOnly)
-import Data.Aviation.WX(Weather, weatherParser)
-import Data.Char(toUpper, isAlpha)
-import Data.Text(Text, pack)
-import Network.HTTP(simpleHTTP, getRequest, getResponseBody)
+import Data.Attoparsec.Text (parseOnly)
+import Data.Aviation.WX (Weather, weatherParser)
+import Data.Char (toUpper, isAlpha)
+import Data.List (intersperse)
+import Data.Text (Text, pack)
+import Network.HTTP (simpleHTTP, getRequest, getResponseBody)
 
 type ICAOStationDesignator = String
 
@@ -50,4 +51,4 @@ fetchWX fetchType icao = do
     return $ parseWeather wx'
     where
         url designator = noaaurl fetchType ++ designator ++ ".TXT"
-        relLine s = Prelude.lines s !! 1
+        relLine = concat . intersperse " " . drop 1 . Prelude.lines

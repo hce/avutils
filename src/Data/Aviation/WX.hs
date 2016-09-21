@@ -952,24 +952,25 @@ runwayDesignationParser = choice ["R88" `means` AllRunways, oneRunway]
                 , "C" `means` RWYCenter ])
             return $ SpecificRunway magheading dir
 
-trendParser :: (Monad f, CharParsing f) => f Trend
+trendParser :: (Monad f, CharParsing f) => f [Trend]
 trendParser = choice
-    [ "NOSIG" `means` NOSIG
-    , changeParser ]
-    where
-        changeParser = do
-            changes <- changesParser
-            when (length changes /= 1) $ fail "A METAR contains exactly one transition"
-            return $ head changes
+    [ "NOSIG" `means` [NOSIG]
+    , changesParser ]
 
 changesParser :: (Monad f, CharParsing f) => f [Trend]
 changesParser = some $ spaces >> transitionTypeParser
     where
         transitionTypeParser = choice
-                [ "TEMPO" `callsfor` (TEMPO Nothing Nothing <$> transitionParser)
-                , "BECMG" `callsfor` (BECMG Nothing Nothing <$> transitionParser)
+                [ "TEMPO" `callsfor` (TEMPO <$> parseFrom <*> parseTo <*> transitionParser)
+                , "BECMG" `callsfor` (BECMG <$> parseFrom <*> parseTo <*> transitionParser)
                 , "PROB" `callsfor`  (PROB  <$> twoDigits <*> (head <$> changesParser)) ]
         transitionParser = sepBy1 oneTransition (char ' ')
+        parseFrom = Nothing `option` do
+            spaces
+            fromDate <- briefDateParser
+            void $ text "/"
+            return $ Just fromDate
+        parseTo = Nothing `option` (Just <$> briefDateParser)
         oneTransition = do
             spaces
             choice . map try $
@@ -1003,7 +1004,7 @@ tafParser = do
             , Just $ TransRunwayVis predictedRunwayvis
             , Just $ TransWX predictedWx
             , Just $ TransClouds predictedClouds ]
-        changes = []
+    changes <- [] `option` changesParser
     return $ TAF
         { _tafissuedat=issuedate
         , _flags=tafflags
@@ -1032,7 +1033,7 @@ metarParser = do
     reportpressure <- Nothing `option` (spaces >> Just <$> pressureParser)
     void $ many $ spaces >> pressureParser -- Sometimes, multiple pressure values are offered
     spaces
-    reporttrend <- NOTAVAIL `option` trendParser
+    reporttrend <- NOTAVAIL `option` (head <$> trendParser)
     reportrmk <- maybeRMK
     spaces
     maintenance' <- or <$> optional (True <$ char '$' <|> False <$ char '=')
