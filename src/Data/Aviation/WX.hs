@@ -116,45 +116,60 @@ data Weather
     = -- | A METeorological Aerodrome Report
       METAR
     { -- | The observation date.
-      _metardate        :: Date
+      _metardate                                :: Date
     , -- | The designation of the observing station.
-      _station     :: Station
+      _station                                  :: Station
     , -- | A remark about the reported observation.
-      _flags       :: [Flag]
+      _flags                                    :: [Flag]
     , -- | The observed wind.
-      _metarwind        :: Maybe Wind
+      _metarwind                                :: Maybe Wind
     , -- | The observed visibility.
-      _metarvisibility  :: [Visibility]
+      _metarvisibility                          :: [Visibility]
     , -- | The observed visibility for specific runways,
       -- usually reported if the runway visibility significantly
       -- differs from the general reported visibility.
-      _runwayvis   :: [(Runway, [Visibility], Maybe VisTrend)]
+      _runwayvis                                :: [(Runway, [Visibility], Maybe VisTrend)]
     , -- | Surface or close conditions of a specific runway.
-      _runwaycond  :: [RunwayCondition]
+      _runwaycond                               :: [RunwayCondition]
     , -- | Observed weather phenomena
-      _wx          :: [WeatherPhenomenon]
+      _wx                                       :: [WeatherPhenomenon]
     , -- | Observed cloud layers
-      _clouds      :: [Cloud]
+      _clouds                                   :: [Cloud]
     , -- | Measured pressure
-      _metarpressure    :: Maybe Pressure
+      _metarpressure                            :: Maybe Pressure
     , -- | Measured pressure
-      _temperature :: Maybe Int
+      _temperature                              :: Maybe Int
     , -- | Determined dew point
-      _dewPoint    :: Maybe Int
+      _dewPoint                                 :: Maybe Int
     , -- | Expected changes within the next two hours
-      _weathertrend       :: Trend
+      _weathertrend                             :: Trend
     , -- | RMK section (Additional parts of a METAR report that are not
       -- part of the official METAR message but are commonly used
       -- in various parts of the world; unparsed)
-      _remark      :: Maybe Text
+      _remark                                   :: Maybe Text
     , --
-      _maintenance :: Bool }
+      _maintenance                              :: Bool }
     | -- | An automatic terminal information service report
       ATIS
     | -- | A non-scheduled METAR
       SPECI
     | -- | A terminal aerodrome forecast
       TAF
+    { -- | The date the TAF was issued
+      _tafissuedat                              :: Date
+    , -- | A remark about the reported observation.
+      _flags                                    :: [Flag]
+    , -- | The designation of the observing station.
+      _station                                  :: Station
+    , -- | The beginning of the validity period
+      _tafvalidfrom                             :: Date
+    , -- | The end of the validity period
+      _tafvaliduntil                            :: Date
+    , -- | The initial conditions predicted to be valid
+      -- for the duration of the TAF
+      _tafinitialconditions                     :: [Transition]
+    , -- | Zero or more predicted changes
+      _tafchanges                               :: [Trend] }
     | -- | An aviation wx hazard message of moderate severity
       AIRMET
     | -- | A significant meteorological information message
@@ -176,7 +191,7 @@ data Flag
       AUTO
     deriving (Eq, Show)
 
--- | The trend part of a METAR message specifies expected
+-- | The trend part of an observation message specifies expected
 -- changes in weather conditions within the next two hours.
 -- A Trend/Transition part of a TAF message specified expected
 -- changes in weather conditions within the specified range.
@@ -184,11 +199,11 @@ data Trend
     = -- | A transition that will start within the defined
       -- time frame and be completed at the end of the defined
       -- time frame
-      BECMG [Transition]
+      BECMG (Maybe Date) (Maybe Date) [Transition]
     | -- | A transition that will start within the defined
       -- time frame and be finished at the end of the defined
       -- time frame
-      TEMPO [Transition]
+      TEMPO (Maybe Date) (Maybe Date) [Transition]
     | -- | A probability specification.
       -- As one of my FIs (ex-atc at EDDF) used to put it:
       -- 30% means "I'm quite sure it won't happen but will still
@@ -675,6 +690,10 @@ dateParser :: CharParsing f => f Date
 dateParser = Date <$> twin <*> twin <*> (twin <* text "Z")
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
 
+briefDateParser :: CharParsing f => f Date
+briefDateParser = Date <$> twin <*> twin <*> (pure 0)
+    where twin = (\a b -> read [a, b]) <$> digit <*> digit
+
 variableWindParser :: (Monad f, CharParsing f) => WindDirection -> f WindDirection
 variableWindParser (Degrees meanWind) = try $ do
     dir1 <- (\a b c -> read [a, b, c]) <$> digit <*> digit <*> digit
@@ -947,8 +966,8 @@ changesParser :: (Monad f, CharParsing f) => f [Trend]
 changesParser = some $ spaces >> transitionTypeParser
     where
         transitionTypeParser = choice
-                [ "TEMPO" `callsfor` (TEMPO <$> transitionParser)
-                , "BECMG" `callsfor` (BECMG <$> transitionParser)
+                [ "TEMPO" `callsfor` (TEMPO Nothing Nothing <$> transitionParser)
+                , "BECMG" `callsfor` (BECMG Nothing Nothing <$> transitionParser)
                 , "PROB" `callsfor`  (PROB  <$> twoDigits <*> (head <$> changesParser)) ]
         transitionParser = sepBy1 oneTransition (char ' ')
         oneTransition = do
@@ -962,6 +981,25 @@ changesParser = some $ spaces >> transitionTypeParser
 
 twoDigits :: CharParsing f => f Int
 twoDigits = (\a b -> read [a,b]) <$> digit <*> digit
+
+tafParser :: (Monad f, CharParsing f) => f Weather
+tafParser = do
+    _ <- text "TAF"
+    tafflags <- flagsParser
+    identifier <- spaces >> stationParser
+    issuedate <- spaces >> dateParser
+    validFrom <- spaces >> briefDateParser
+    validTo <- text "/" >> briefDateParser
+    let initialConditions = []
+        changes = []
+    return $ TAF
+        { _tafissuedat=issuedate
+        , _flags=tafflags
+        , _station=identifier
+        , _tafvalidfrom=validFrom
+        , _tafvaliduntil=validTo
+        , _tafinitialconditions=initialConditions
+        , _tafchanges=changes}
 
 metarParser :: (Monad f, CharParsing f) => f Weather
 metarParser = do
@@ -998,4 +1036,4 @@ maybeRMK = Nothing `option` do
 
 -- | An attoparsec parser that can parse METAR messages.
 weatherParser :: (Monad f, CharParsing f) => f Weather
-weatherParser = metarParser
+weatherParser = choice [ metarParser, tafParser ]

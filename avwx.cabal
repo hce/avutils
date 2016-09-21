@@ -34,6 +34,7 @@ executable metar
   ghc-options:         -rtsopts
   build-depends:       base
                      , avwx
+                     , optparse-applicative
                      , pretty-show
   default-language:    Haskell2010
 
