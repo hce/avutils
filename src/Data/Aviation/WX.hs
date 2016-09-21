@@ -390,7 +390,8 @@ data Distance
 
 -- | Vertical visibility.
 data Visibility
-    = -- | Ten kilometres or more.
+    = -- | Ten kilometres or more. This is also used for "P6SM" which means 6 statute miles or more.
+      -- Do note that 6SM is a little less than 10km (9.6km)
       TenOrMore
     | -- | Fifty metres or less.
       FiftyMetresOrLess
@@ -690,6 +691,10 @@ dateParser :: CharParsing f => f Date
 dateParser = Date <$> twin <*> twin <*> (twin <* text "Z")
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
 
+dateParserSansZulu :: CharParsing f => f Date
+dateParserSansZulu = Date <$> twin <*> twin <*> twin
+    where twin = (\a b -> read [a, b]) <$> digit <*> digit
+
 briefDateParser :: CharParsing f => f Date
 briefDateParser = Date <$> twin <*> twin <*> (pure 0)
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
@@ -802,9 +807,10 @@ intensityParser = option Moderate $ choice
     , "RE" `means` Recent ]
 
 visibilityParser :: (Monad f, CharParsing f) => f Visibility
-visibilityParser = spaces >> choice [ tenormore, arb, arb1, metres ]
+visibilityParser = spaces >> choice [ tenormore, sixmilesormore, arb, arb1, metres ]
     where
         tenormore = text "9999" >> return TenOrMore
+        sixmilesormore = text "P6SM" >> return TenOrMore
         metres = (\a b c d dir -> SpecificVisibility (visunit $ read [a,b,c,d]) dir) <$> digit <*> digit <*> digit <*> digit <*> directionParser
         visunit :: Int -> Distance
         visunit n = if n > 5000
@@ -963,8 +969,13 @@ changesParser = some $ spaces >> transitionTypeParser
         transitionTypeParser = choice
                 [ "TEMPO" `callsfor` (TEMPO <$> parseFrom <*> parseTo <*> transitionParser)
                 , "BECMG" `callsfor` (BECMG <$> parseFrom <*> parseTo <*> transitionParser)
+                , "FM" `callsfor` (BECMG <$> parseFromFM <*> (pure Nothing) <*> transitionParser)
                 , "PROB" `callsfor`  (PROB  <$> twoDigits <*> (head <$> changesParser)) ]
         transitionParser = sepBy1 oneTransition (char ' ')
+        parseFromFM = do
+            fromDate <- dateParserSansZulu
+            void $ text " "
+            return $ Just fromDate
         parseFrom = Nothing `option` do
             spaces
             fromDate <- briefDateParser
