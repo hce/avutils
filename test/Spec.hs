@@ -5,7 +5,11 @@ module Main
 
 import Control.Monad
 import Data.Attoparsec.Text (parseOnly)
-import Data.Text
+import Data.Text (Text)
+import Text.Show.Pretty
+
+import qualified Data.Text as T
+import qualified Data.Text.IO as TI
 
 import Data.Aviation.WX
 
@@ -35,3 +39,18 @@ main = do
     let Right loxt' = parseWeather loxt
     unless (_temperature loxt' == Just 27) $ error "Temperature LOXT should be 27 degrees centigrade!"
     unless (_dewPoint loxt' == Just 12) $ error "Dew point LOXT should be 12 degrees centigrade!"
+
+    metars <- T.lines <$> TI.readFile "test/metars.txt"
+    tafs <- T.lines <$> TI.readFile "test/tafs.txt"
+
+    forM_ metars $ \metar -> do
+        let wx = parseWeather metar
+        case wx of
+            Right wx' -> putStrLn . ppShow $ wx'
+            Left err  -> error $ show metar ++ ": " ++ err
+
+    forM_ tafs $ \taf -> do
+        let wx = parseWeather taf
+        case wx of
+            Right wx' -> putStrLn . ppShow $ wx'
+            Left err  -> error $ show taf ++ ": " ++ err
