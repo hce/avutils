@@ -46,6 +46,7 @@ test-suite avwx-test
   build-depends:       base
                      , attoparsec >= 0.13 && < 1
                      , avwx
+                     , lens >= 4.1 && < 5
                      , pretty-show
                      , text
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N

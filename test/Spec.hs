@@ -3,6 +3,8 @@ module Main
     ( main
     ) where
 
+import Control.Lens
+import Control.Lens.Traversal
 import Control.Monad
 import Data.Attoparsec.Text (parseOnly)
 import Data.Text (Text)
@@ -53,7 +55,8 @@ check str = do
         Right wx' -> do
             if _reporttype wx' == MetarReport
             then
-                when (_temperature wx' == Nothing) $ do
+                when ( wx'^..temperature == [Nothing]
+                    || wx'^..temperature == [] ) $ do
                     putStrLn "Suspected parsing failure"
                     putStrLn "=========================\n"
                     putStrLn $ show str
