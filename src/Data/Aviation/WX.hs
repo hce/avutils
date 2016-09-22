@@ -570,6 +570,8 @@ data Unit
       Knots Int
     | -- | Statute miles per hour
       Miles Int
+    | -- |  Unknown (miles per second?)
+      MPS Int
     | -- | Kilometres per hour
       KMH Int
     deriving (Eq, Show)
@@ -724,6 +726,7 @@ windParser = do
         readwindstr = (\a b -> read [a, b]) <$> digit <*> digit
         readunit = choice [ "KT" `means` Knots
                           , "MPH" `means` Miles
+                          , "MPS" `means` MPS
                           , "KM" `means` KMH]
         readgusts = (\_ b c -> Just . read $ [b, c]) <$> char 'G' <*> digit <*> digit
 

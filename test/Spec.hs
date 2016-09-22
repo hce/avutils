@@ -43,16 +43,17 @@ main = do
     metars <- T.lines <$> TI.readFile "test/metars.txt"
     tafs <- T.lines <$> TI.readFile "test/tafs.txt"
 
-    forM_ metars $ \metar -> do
-        let wx = parseWeather metar
-        print metar
-        case wx of
-            Right wx' -> putStrLn . ppShow $ wx'
-            Left err  -> error $ show metar ++ ": " ++ err
+    mapM_ check metars
+    mapM_ check tafs
 
-    forM_ tafs $ \taf -> do
-        let wx = parseWeather taf
-        print taf
-        case wx of
-            Right wx' -> putStrLn . ppShow $ wx'
-            Left err  -> error $ show taf ++ ": " ++ err
+check :: Text -> IO ()
+check str = do
+    let wx = parseWeather str
+    case wx of
+        Right wx' -> do
+            when (_temperature wx' == Nothing) $ do
+                putStrLn "Suspected parsing failure"
+                putStrLn "=========================\n"
+                putStrLn $ show str
+                putStrLn $ ppShow wx'
+        Left err  -> error $ show str ++ ": " ++ err
