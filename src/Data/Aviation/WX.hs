@@ -142,7 +142,8 @@ data Weather
     , -- | Determined dew point
       _dewPoint                                 :: Maybe Int
     , -- | Expected changes within the next two hours
-      _weathertrend                             :: Trend
+      -- There can be more than one; for example a TEMPO and a BECMG prediction
+      _weathertrend                             :: [Trend]
     , -- | RMK section (Additional parts of a METAR report that are not
       -- part of the official METAR message but are commonly used
       -- in various parts of the world; unparsed)
@@ -1066,7 +1067,7 @@ metarParser = do
     reportpressure <- Nothing `option` (spaces >> Just <$> pressureParser)
     void $ many $ spaces >> pressureParser -- Sometimes, multiple pressure values are offered
     spaces
-    reporttrend <- NOTAVAIL `option` (head <$> trendParser)
+    reporttrend <- [] `option` trendParser
     reportrmk <- maybeRMK
     spaces
     maintenance' <- or <$> optional (True <$ char '$' <|> False <$ char '=')
