@@ -51,9 +51,13 @@ check str = do
     let wx = parseWeather str
     case wx of
         Right wx' -> do
-            when (_temperature wx' == Nothing) $ do
-                putStrLn "Suspected parsing failure"
-                putStrLn "=========================\n"
-                putStrLn $ show str
+            if _reporttype wx' == MetarReport
+            then do
+                when (_temperature wx' == Nothing) $ do
+                    putStrLn "Suspected parsing failure"
+                    putStrLn "=========================\n"
+                    putStrLn $ show str
+                    putStrLn $ ppShow wx'
+            else
                 putStrLn $ ppShow wx'
         Left err  -> error $ show str ++ ": " ++ err

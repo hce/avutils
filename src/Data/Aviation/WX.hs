@@ -94,6 +94,7 @@ module Data.Aviation.WX(
   , Unit(..)
   , HasUnit(..)
   , AsUnit(..)
+  , ReportType(..)
   ) where
 
 import Control.Applicative(Alternative((<|>), some, many), optional)
@@ -111,11 +112,17 @@ takeChars ::
 takeChars n =
   pack <$> count n anyChar
 
--- | Aviation weather, currently only METARs are supported.
+data ReportType
+    = MetarReport | TafReport
+    deriving (Eq, Show, Enum)
+
+-- | Aviation weather, currently only METARs and TAFs are supported.
 data Weather
     = -- | A METeorological Aerodrome Report
       METAR
-    { -- | The observation date.
+    { -- | The type of the report
+      _reporttype                               :: ReportType
+    , -- | The observation date.
       _metardate                                :: Date
     , -- | The designation of the observing station.
       _station                                  :: Station
@@ -156,7 +163,9 @@ data Weather
       SPECI
     | -- | A terminal aerodrome forecast
       TAF
-    { -- | The date the TAF was issued
+    { -- | The type of the report
+      _reporttype                               :: ReportType
+    , -- | The date the TAF was issued
       _tafissuedat                              :: Date
     , -- | A remark about the reported observation.
       _flags                                    :: [Flag]
@@ -343,6 +352,8 @@ data WPPrecipitation
       Hail
     | -- | Snow pellets.
       SnowPellets
+    | -- | No precipication detected (fully automated measurement)
+      NoPrecipitationDetected
     | -- | Unknown type of precipitation.
       UnknownPrecipitation
     deriving (Enum, Eq, Ord, Show)
@@ -422,6 +433,8 @@ data Direction
       SouthWest
     | -- | Southeast.
       SouthEast
+    | -- | No direction could be determined
+      NDV
     | -- | Left runway for runways of the same QFU
       -- (part of the runway designator)
       RWYLeft
@@ -786,6 +799,7 @@ precipitationParser = choice
     , "PL" `means` IcePellets
     , "GR" `means` Hail
     , "GS" `means` SnowPellets
+    , "// " `means` NoPrecipitationDetected
     , "UP" `means` UnknownPrecipitation ]
 
 obfuscationParser :: (Monad f, CharParsing f) => f WPObfuscation
@@ -814,8 +828,9 @@ intensityParser = option Moderate $ choice
     , "RE" `means` Recent ]
 
 visibilityParser :: (Monad f, CharParsing f) => f Visibility
-visibilityParser = spaces >> choice [ tenormore, sixmilesormore, arb, arb1, metres ]
+visibilityParser = spaces >> choice [ tenormorendv, tenormore, sixmilesormore, arb, arb1, metres ]
     where
+        tenormorendv =  text "9999NDV" >> return TenOrMore
         tenormore = text "9999" >> return TenOrMore
         sixmilesormore = text "P6SM" >> return TenOrMore
         metres = (\a b c d dir -> SpecificVisibility (visunit $ read [a,b,c,d]) dir) <$> digit <*> digit <*> digit <*> digit <*> directionParser
@@ -830,6 +845,7 @@ directionParser :: (Monad f, CharParsing f) => f (Maybe Direction)
 directionParser = Nothing `option` (Just <$> choice
     [ "NE" `means` NorthEast, "NW" `means` NorthWest
     , "SE" `means` SouthEast, "SW" `means` SouthWest
+    , "NDV" `means` NDV
     , "N" `means` North, "S" `means` South
     , "E" `means` East, "W" `means` West ])
 
@@ -1043,7 +1059,8 @@ tafParser = do
             , Just $ TransPressure predictedQnh ]
     changes <- [] `option` changesParser
     return TAF
-        { _tafissuedat=issuedate
+        { _reporttype=TafReport
+        , _tafissuedat=issuedate
         , _flags=tafflags
         , _station=identifier
         , _tafvalidfrom=validFrom
@@ -1074,7 +1091,7 @@ metarParser = do
     reportrmk <- maybeRMK
     spaces
     maintenance' <- or <$> optional (True <$ char '$' <|> False <$ char '=')
-    return $ METAR reportdate identifier (reportflags ++ reportflags2)
+    return $ METAR MetarReport reportdate identifier (reportflags ++ reportflags2)
         reportwind reportvis reportrunwayvis reportrunwaycond reportwx
         reportclouds reportpressure reporttemp reportdewpoint
         reporttrend reportrmk maintenance'
