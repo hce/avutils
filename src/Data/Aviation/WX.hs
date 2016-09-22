@@ -209,11 +209,17 @@ data Trend
     = -- | A transition that will start within the defined
       -- time frame and be completed at the end of the defined
       -- time frame
-      BECMG (Maybe Date) (Maybe Date) [Transition]
+      BECMG
+    { _becmgStart           :: Maybe Date
+    , _becmgFinished        :: Maybe Date
+    , _becmgTransitions     :: [Transition] }
     | -- | A transition that will start within the defined
       -- time frame and be finished at the end of the defined
       -- time frame
-      TEMPO (Maybe Date) (Maybe Date) [Transition]
+      TEMPO
+    { _tempoFrom            :: Maybe Date
+    , _tempoTo              :: Maybe Date
+    , _tempoTransitions     :: [Transition] }
     | -- | A probability specification.
       -- As one of my FIs (ex-atc at EDDF) used to put it:
       -- 30% means "I'm quite sure it won't happen but will still

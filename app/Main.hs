@@ -4,6 +4,7 @@ module Main
     ) where
 
 import Control.Monad
+import Data.Monoid ((<>))
 import Options.Applicative
 import System.Environment
 import Text.Show.Pretty

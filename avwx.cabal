@@ -1,5 +1,5 @@
 name:                avwx
-version:             0.3.0.0
+version:             0.3.0.1
 synopsis:            Parse aviation weather reports
 description:         Parse aviation weather reports, currently METARs and TAFs
 homepage:            https://www.hcesperer.org/posts/2016-09-20-avwx.html
