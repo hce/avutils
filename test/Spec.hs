@@ -52,12 +52,16 @@ check str = do
     case wx of
         Right wx' -> do
             if _reporttype wx' == MetarReport
-            then do
+            then
                 when (_temperature wx' == Nothing) $ do
                     putStrLn "Suspected parsing failure"
                     putStrLn "=========================\n"
                     putStrLn $ show str
                     putStrLn $ ppShow wx'
             else
-                putStrLn $ ppShow wx'
+                when (length [n | TransVis n <- _tafinitialconditions wx'] == 0) $ do
+                    putStrLn "Suspected parsing failure"
+                    putStrLn "=========================\n"
+                    putStrLn $ show str
+                    putStrLn $ ppShow wx'
         Left err  -> error $ show str ++ ": " ++ err
