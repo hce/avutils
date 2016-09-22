@@ -5,49 +5,85 @@ avwx
 
 Fetch and parse aviation weather reports.
 
-Currently, only standard METAR reports are supported, subject to extensive
-testing. RMK sections are not yet supported. Making this parser work with all METARs is pretty tedious and difficult,
-because every country seems to be using some subtly different specification.
-This parser was written with the publicly available documentation from
-DWD (Deutscher Wetterdienst) in mind, so it should work with all German
-METARs. Patches (pull requests) and suggestions are very welcome!
+METARs and TAFs are quite well parseable; however, they were designed primarily
+to be easily read by humans, not machines. Subtle differences between countries
+(and even between weather stations) and lack of comprehensive documentation
+make it very difficult to create a reliable parser. This is subject to ongoing
+testing. Patches and success reports are most welcome!
 
 Important: "For educational purposes only, *not* for flight planning! Use at
 your own risk."
 
-# Usage
+Example session
+===============
 
-This package is intended to be used as a library. However, for demonstration purposes,
-it comes with a small command line utility that can be invoked like this:
-
-    hc@hc-pc ~ λ metar eddf llbg eham tncm
-
-The output will look like this:
-
-    Fetching weather information for eddf
-    Parsing "METAR EDDF 281650Z 15006KT 9999 FEW034 SCT048 BKN130 22/15 Q1015 NOSIG="
+     ~> metar --metar edny
+    Parsing "METAR EDNY 220820Z 02005KT 5000 BR SCT008 OVC010 10/09 Q1022"
     METAR
-      { date = Date 28 16 50
-      , station = ICAO "EDDF"
-      , flags = []
-      , wind =
+      { _metardate = Date { _dayOfMonth = 22 , _hour = 8 , _minute = 20 }
+      , _station = ICAO "EDNY"
+      , _flags = []
+      , _metarwind =
           Just
             Wind
-              { direction = Degrees 150 , velocity = Knots 6 , gusts = Nothing }
-      , visibility = [ TenOrMore ]
-      , runwayvis = []
-      , runwaycond = []
-      , wx = []
-      , clouds =
-          [ Cloud FEW (Height 3400) Unclassified
-          , Cloud SCT (Height 4800) Unclassified
-          , Cloud BKN (Height 13000) Unclassified
+              { _winddirection = Just (Degrees 20)
+              , _velocity = Just (Knots 5)
+              , _gusts = Nothing
+              }
+      , _metarvisibility = [ SpecificVisibility (Metres 5000) Nothing ]
+      , _runwayvis = []
+      , _runwaycond = []
+      , _wx =
+          [ Phenomenon
+              { _intensity = Moderate
+              , _desc = Nothing
+              , _prec = Nothing
+              , _obfus = Just Mist
+              , _other = Nothing
+              }
           ]
-      , pressure = Just (QNH 1015)
-      , temperature = Just 22
-      , dewPoint = Just 15
-      , trend = NOSIG
-      , remark = Nothing
-      , maintenance = False
-          }
-    ...
+      , _clouds =
+          [ ObservedCloud SCT (Height 800) Unclassified
+          , ObservedCloud OVC (Height 1000) Unclassified
+          ]
+      , _metarpressure = Just (QNH 1022)
+      , _temperature = Just 10
+      , _dewPoint = Just 9
+      , _weathertrend = NOTAVAIL
+      , _remark = Nothing
+      , _maintenance = False
+      }
+
+    ~> metar --taf edny
+    Parsing "TAF        AMD EDNY 220900Z 2209/2306 24005KT 6000 BKN010        BECMG 2209/2211 SCT020"
+    Right
+      TAF
+        { _tafissuedat =
+            Date { _dayOfMonth = 22 , _hour = 9 , _minute = 0 }
+        , _flags = [ AMD ]
+        , _station = ICAO "EDNY"
+        , _tafvalidfrom =
+            Date { _dayOfMonth = 22 , _hour = 9 , _minute = 0 }
+        , _tafvaliduntil =
+            Date { _dayOfMonth = 23 , _hour = 6 , _minute = 0 }
+        , _tafinitialconditions =
+            [ TransWind
+                Wind
+                  { _winddirection = Just (Degrees 240)
+                  , _velocity = Just (Knots 5)
+                  , _gusts = Nothing
+                  }
+            , TransVis [ SpecificVisibility (KM 6) Nothing ]
+            , TransRunwayVis []
+            , TransWX []
+            , TransClouds [ ObservedCloud BKN (Height 1000) Unclassified ]
+            , TransPressure []
+            ]
+        , _tafchanges =
+            [ BECMG
+                (Just Date { _dayOfMonth = 22 , _hour = 9 , _minute = 0 })
+                (Just Date { _dayOfMonth = 22 , _hour = 11 , _minute = 0 })
+                [ TransClouds [ ObservedCloud SCT (Height 2000) Unclassified ] ]
+            ]
+        }
+
