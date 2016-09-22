@@ -45,12 +45,14 @@ main = do
 
     forM_ metars $ \metar -> do
         let wx = parseWeather metar
+        print metar
         case wx of
             Right wx' -> putStrLn . ppShow $ wx'
             Left err  -> error $ show metar ++ ": " ++ err
 
     forM_ tafs $ \taf -> do
         let wx = parseWeather taf
+        print taf
         case wx of
             Right wx' -> putStrLn . ppShow $ wx'
             Left err  -> error $ show taf ++ ": " ++ err

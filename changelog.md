@@ -1,3 +1,8 @@
+# 0.3.0.0
+
+* Parse TAFs
+* More tests
+
 # 0.2.0.0
 
 Many improvements by Tony Morris:

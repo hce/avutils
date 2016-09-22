@@ -235,6 +235,8 @@ data Transition
       TransWX [WeatherPhenomenon]
     | -- | A change of ceiling or cloud layers
       TransClouds [Cloud]
+    | -- | A change of ceiling or cloud layers
+      TransPressure [Pressure]
     deriving (Eq, Show)
 
 -- | A visibility trend specifically for runway conditions
@@ -532,9 +534,9 @@ data Vertical
 data Wind
     = Wind
     { -- | The direction the wind is blowing from.
-      _winddirection :: WindDirection
+      _winddirection :: Maybe WindDirection
     , -- | The wind speed.
-      _velocity  :: Unit
+      _velocity  :: Maybe Unit
     , -- | The strength of the observed gusts, if any.
       _gusts     :: Maybe Int
     } deriving (Eq, Show)
@@ -676,13 +678,13 @@ instance HasWPIntensity WeatherPhenomenon where
   wPIntensity =
     intensity . wPIntensity
 
-instance HasWindDirection Wind where
-  windDirection =
-    winddirection . windDirection
+--instance HasWindDirection Wind where
+--  windDirection =
+--    winddirection . windDirection
 
-instance HasUnit Wind where
-  unit = 
-    velocity . unit
+--instance HasUnit Wind where
+--  unit =
+--    velocity . unit
     
 stationParser :: CharParsing f => f Station
 stationParser = ICAO <$> takeChars 4
@@ -699,8 +701,8 @@ briefDateParser :: CharParsing f => f Date
 briefDateParser = Date <$> twin <*> twin <*> pure 0
     where twin = (\a b -> read [a, b]) <$> digit <*> digit
 
-variableWindParser :: (Monad f, CharParsing f) => WindDirection -> f WindDirection
-variableWindParser (Degrees meanWind) = try $ do
+variableWindParser :: (Monad f, CharParsing f) => Maybe WindDirection -> f WindDirection
+variableWindParser (Just (Degrees meanWind)) = try $ do
     dir1 <- (\a b c -> read [a, b, c]) <$> digit <*> digit <*> digit
     _ <- char 'V'
     dir2 <- (\a b c -> read [a, b, c]) <$> digit <*> digit <*> digit
@@ -709,12 +711,12 @@ variableWindParser _ = fail "Erroneous parameters"
 
 windParser :: (Monad f, CharParsing f) => f Wind
 windParser = do
-    dir <- choice [readwinddir, variablewind]
-    str <- readwindstr
+    dir <- choice [Just <$> readwinddir, Just <$> variablewind, text "///" >> return Nothing]
+    str <- choice [Just <$> readwindstr, text "//" >> return Nothing]
     gustsies <- option Nothing readgusts
     unit' <- readunit
-    dir2 <- option dir $ char ' ' >> variableWindParser dir
-    return $ Wind dir2 (unit' str) gustsies
+    dir2 <- option dir (Just <$> (char ' ' >> variableWindParser dir))
+    return $ Wind dir2 (unit' <$> str) gustsies
     where
         variablewind = "VRB" `means` Variable
         readwinddir = (\a b c -> Degrees . read $ [a, b, c]) <$> digit <*> digit <*> digit
@@ -725,9 +727,10 @@ windParser = do
         readgusts = (\_ b c -> Just . read $ [b, c]) <$> char 'G' <*> digit <*> digit
 
 pressureParser :: CharParsing f => f  Pressure
-pressureParser = choice [qnh, mmhg]
+pressureParser = choice [qnha, mmhg, qnh]
     where
-      qnh = (\_ a b c d -> QNH $ read [a, b, c, d]) <$> char 'Q' <*> digit <*> digit <*> digit <*> digit
+      qnh  = (\_ a b c d -> QNH $ read [a, b, c, d]) <$> char 'Q' <*> digit <*> digit <*> digit <*> digit
+      qnha = (\_ a b c d _ -> Altimeter $ read [a, b, c, d]) <$> text "QNH" <*> digit <*> digit <*> digit <*> digit <*> text "INS"
       mmhg = (\_ a b c d -> Altimeter $ read [a, b, c, d]) <$> char 'A' <*> digit <*> digit <*> digit <*> digit
 
 wxParser :: (Monad f, CharParsing f) => f WeatherPhenomenon
@@ -833,7 +836,8 @@ distanceUnitParser = choice
     , "NM" `means` NM ]
 
 cloudParser :: (Monad f, CharParsing f) => f [Cloud]
-cloudParser = choice [(:[]) <$> vvisParser, nsc, cavok, clr, skc, sepBy1 clds (char ' ')]
+cloudParser = choice [ (:[]) <$> vvisParser, cavok
+                     , catMaybes <$> sepBy1 (choice [ Just <$> clds, noclouds ]) (char ' ')]
     where
         clds = do
             perhaps_ space
@@ -844,10 +848,18 @@ cloudParser = choice [(:[]) <$> vvisParser, nsc, cavok, clr, skc, sepBy1 clds (c
 
             cloudType' <- cloudTypeParser
             return $ ObservedCloud intsy height cloudType'
+
         cavok = spaces >> "CAVOK" `means` []
-        nsc = spaces >> "NSC" `means` []
-        clr = spaces >> "CLR" `means` []
-        skc = spaces >> "SKC" `means` []
+
+        noclouds = choice [ clr, nsc
+                          , ncd, skc, nsw, nowx, ncd2 ]
+        nsc   = "NSC " `means`    Nothing
+        clr   = "CLR " `means`    Nothing
+        skc   = "SKC " `means`    Nothing
+        nsw   = "NSW " `means`    Nothing
+        ncd   = "NCD " `means`    Nothing
+        nowx  = "// " `means`     Nothing
+        ncd2  = "////// " `means` Nothing
 
 vvisParser :: (Monad f, CharParsing f) => f Cloud
 vvisParser = do
@@ -880,12 +892,18 @@ cloudTypeParser = option Unclassified $ choice
 perhapsMinus :: (Monad f, CharParsing f) => f String
 perhapsMinus = "" `option` (char 'M' >> return "-")
 
-tdParser :: (Monad f, CharParsing f) => f (Int, Int)
+tdParser :: (Monad f, CharParsing f) => f (Maybe Int, Maybe Int)
 tdParser = do
-    tmpr <- (\pm a b -> read (pm ++ [a, b]) :: Int) <$> perhapsMinus <*> digit <*> digit
+    tmpr <- choice
+        [ text "//" >> return Nothing
+        , Just <$> tmpParser ]
     _ <- char '/'
-    dewpoint <- (\pm a b -> read (pm ++ [a, b]) :: Int) <$> perhapsMinus <*> digit <*> digit
+    dewpoint <- choice
+        [ text "//" >> return Nothing
+        , Just <$> tmpParser ]
     return (tmpr, dewpoint)
+    where
+        tmpParser = (\pm a b -> read (pm ++ [a, b]) :: Int) <$> perhapsMinus <*> digit <*> digit
 
 flagsParser :: (Monad f, CharParsing f) => f [Flag]
 flagsParser = many $ choice
@@ -989,7 +1007,8 @@ changesParser = some $ spaces >> transitionTypeParser
               [ TransClouds    <$> cloudParser
               , TransWind      <$> windParser
               , TransVis       <$> some visibilityParser
-              , TransWX        <$> count 1 wxParser
+              , TransWX        <$> many wxParser
+              , TransPressure . (:[]) <$> pressureParser
               , TransRunwayVis <$> sepBy runwayvisParser (char ' ') ]
 
 twoDigits :: CharParsing f => f Int
@@ -1010,12 +1029,14 @@ tafParser = do
     predictedRunwayvis <- sepBy runwayvisParser (char ' ')
     predictedWx <- many wxParser
     predictedClouds <- [] `option` (spaces >> cloudParser)
+    predictedQnh <- many $ spaces >> pressureParser -- Sometimes, multiple pressure values are offered
     let initialConditions = catMaybes
             [ TransWind <$> predictedWind
             , Just $ TransVis predictedVisibility
             , Just $ TransRunwayVis predictedRunwayvis
             , Just $ TransWX predictedWx
-            , Just $ TransClouds predictedClouds ]
+            , Just $ TransClouds predictedClouds
+            , Just $ TransPressure predictedQnh ]
     changes <- [] `option` changesParser
     return TAF
         { _tafissuedat=issuedate
@@ -1041,7 +1062,7 @@ metarParser = do
     reportrunwayvis <- sepBy runwayvisParser (char ' ')
     reportwx <- many wxParser
     reportclouds <- [] `option` (spaces >> cloudParser)
-    (reporttemp, reportdewpoint) <- (Nothing, Nothing) `option` (spaces >> tdParser >>= \(w,d) -> return (Just w, Just d))
+    (reporttemp, reportdewpoint) <- (Nothing, Nothing) `option` (spaces >> tdParser)
     reportpressure <- Nothing `option` (spaces >> Just <$> pressureParser)
     void $ many $ spaces >> pressureParser -- Sometimes, multiple pressure values are offered
     spaces
