@@ -103,7 +103,7 @@ import Control.Monad(when, void)
 import Data.Maybe(isNothing, catMaybes)
 import Data.Text(Text, pack)
 import Text.Parser.Char(CharParsing, space, spaces, char, satisfy, text, digit, anyChar)
-import Text.Parser.Combinators(try, option, choice, sepBy, sepBy1, count)
+import Text.Parser.Combinators(try, option, choice, sepBy, sepBy1, count, unexpected)
 
 takeChars ::
   CharParsing f =>
@@ -729,7 +729,7 @@ variableWindParser (Just (Degrees meanWind)) = try $ do
     _ <- char 'V'
     dir2 <- (\a b c -> read [a, b, c]) <$> digit <*> digit <*> digit
     return $ Varying meanWind dir1 dir2
-variableWindParser _ = fail "Erroneous parameters"
+variableWindParser _ = unexpected "Erroneous parameters"
 
 windParser :: (Monad f, CharParsing f) => f Wind
 windParser = do
@@ -766,7 +766,7 @@ wxParser = do
     othr <- perhaps otherParser
     when ( (== 0) . Prelude.length . Prelude.filter not $
         [ isNothing dsc, isNothing prc
-        , isNothing obfs, isNothing othr ] ) $ fail ""
+        , isNothing obfs, isNothing othr ] ) $ unexpected ""
     return $ Phenomenon intsy dsc prc obfs othr
 
 perhaps :: Alternative m => m a -> m (Maybe a)
