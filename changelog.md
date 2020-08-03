@@ -1,3 +1,7 @@
+# 0.3.0.2
+
+* Make it compile with a new ghc version
+
 # 0.3.0.0
 
 * Parse TAFs
